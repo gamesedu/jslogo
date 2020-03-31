@@ -1456,15 +1456,11 @@ function LogoInterpreter(turtle, stream, savehook)
   }, {minimum: 0, maximum: -1});
 
   def("fput", function(thing, list) {
-    var l = lexpr(list);
-    l.unshift(thing);
-    return sifw(list, l);
+    var l = lexpr(list); l.unshift(thing); return sifw(list, l);
   });
 
   def("lput", function(thing, list) {
-    var l = lexpr(list);
-    l.push(thing);
-    return sifw(list, l);
+    var l = lexpr(list); l.push(thing); return sifw(list, l);
   });
 
   def("array", function(size) {
@@ -1809,15 +1805,15 @@ function LogoInterpreter(turtle, stream, savehook)
 
   def(["print", "pr"], function(thing) {
     var s = Array.from(arguments).map(stringify_nodecorate).join(" ");
-    return this.stream.write(s, "\n");
+    this.stream.write(s, "\n");
   }, {minimum: 0, maximum: -1});
   def("type", function(thing) {
     var s = Array.from(arguments).map(stringify_nodecorate).join("");
-    return this.stream.write(s);
+    this.stream.write(s);
   }, {minimum: 0, maximum: -1});
   def("show", function(thing) {
     var s = Array.from(arguments).map(stringify).join(" ");
-    return this.stream.write(s, "\n");
+    this.stream.write(s, "\n");
   }, {minimum: 0, maximum: -1});
 
   // 3.2 Receivers
@@ -1875,7 +1871,7 @@ function LogoInterpreter(turtle, stream, savehook)
   // Not Supported: keyp
 
   def(["cleartext", "ct"], function() {
-    return this.stream.clear();
+    this.stream.clear();
   });
 
   // Not Supported: setcursor
@@ -3193,7 +3189,7 @@ function LogoInterpreter(turtle, stream, savehook)
   // Not Supported: continue
 
   def("wait", function(time) {
-    return promiseYieldTime(Math.ceil(aexpr(time) / 60 * 1000));
+    return promiseYieldTime(aexpr(time) / 60 * 1000);
   });
 
   def("bye", function() {
@@ -3241,22 +3237,22 @@ function LogoInterpreter(turtle, stream, savehook)
         this.execute(instructionlist, {returnResult: true})
           .then(function(result) {
             out = out.concat(result);
-          })
-          .then(loop, reject);
+            loop();
+          }).catch(reject);
       } else if (Type(member) === 'word' && /^",/.test(member)) {
         instructionlist = reparse(member.substring(2));
         this.execute(instructionlist, {returnResult: true})
           .then(function(result) {
             out.push('"' + (Type(result) === 'list' ? result[0] : result));
-          })
-          .then(loop, reject);
+            loop();
+          }).catch(reject);
       } else if (Type(member) === 'word' && /^:,/.test(member)) {
         instructionlist = reparse(member.substring(2));
         this.execute(instructionlist, {returnResult: true})
           .then(function(result) {
             out.push(':' + (Type(result) === 'list' ? result[0] : result));
-          })
-          .then(loop, reject);
+            loop();
+          }).catch(reject);
       } else {
         out.push(member);
         loop();
@@ -3373,7 +3369,7 @@ function LogoInterpreter(turtle, stream, savehook)
           }
           this.execute(block)
             .then(promiseYield)
-            .then(loop, reject);
+            .then(loop);
         }.bind(this), reject);
     }.bind(this));
   }, {noeval: true});
@@ -3414,7 +3410,7 @@ function LogoInterpreter(turtle, stream, savehook)
           }
           this.execute(block)
             .then(promiseYield)
-            .then(loop, reject);
+            .then(loop);
         }.bind(this), reject);
     }.bind(this));
   }, {noeval: true});
@@ -3510,9 +3506,9 @@ function LogoInterpreter(turtle, stream, savehook)
         resolve();
         return;
       }
-      Promise.resolve(routine.call(this, list.shift()))
+      Promise.resolve(routine(list.shift()))
         .then(loop, reject);
-    }.bind(this));
+    });
   });
 
 
@@ -3567,10 +3563,10 @@ function LogoInterpreter(turtle, stream, savehook)
         return;
       }
       var item = list.shift();
-      Promise.resolve(routine.call(this, item))
+      Promise.resolve(routine(item))
         .then(function(value) { if (value) filtered.push(item); })
         .then(loop, reject);
-    }.bind(this));
+    });
   });
 
   def("find", function(procname, list) {
@@ -3589,7 +3585,7 @@ function LogoInterpreter(turtle, stream, savehook)
         return;
       }
       var item = list.shift();
-      Promise.resolve(routine.call(this, item))
+      Promise.resolve(routine(item))
         .then(function(value) {
           if (value) {
             resolve(item);
@@ -3597,7 +3593,7 @@ function LogoInterpreter(turtle, stream, savehook)
           }
           loop();
       }, reject);
-    }.bind(this));
+    });
   });
 
   def("reduce", function(procname, list) {
@@ -3677,14 +3673,5 @@ function LogoInterpreter(turtle, stream, savehook)
   // Helper for testing that wraps a result in a Promise
   def(".promise", function(value) {
     return Promise.resolve(value);
-  });
-  def(".verify_bound_ignore", function(value) {
-    if (this === undefined)
-      throw new Error("Internal error: Unbound procedure");
-  });
-  def(".verify_bound_identity", function(value) {
-    if (this === undefined)
-      throw new Error("Internal error: Unbound procedure");
-    return value;
   });
 }
