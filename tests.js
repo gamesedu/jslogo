@@ -318,6 +318,10 @@ QUnit.test("Parser", function(t) {
   //
 
   this.assert_stream('type .2 + .3', '0.5');
+  this.assert_equals('1e2', 100);
+  this.assert_equals('1e+2', 100);
+  this.assert_equals('1e-2', 0.01);
+  this.assert_equals('-1', -1);
 
   //
   // Arrays
@@ -329,6 +333,17 @@ QUnit.test("Parser", function(t) {
   this.assert_equals('count { a b c } @ 0', 3);
   this.assert_error('make "a count { 1 2 3 }@1.5', "Don't know what to do with 0.5", 9);
   this.assert_equals('item 0 { 1 2 3 }@', '1');
+
+  this.assert_equals('item 1 { 1 2 3 }@1', '1');
+  this.assert_equals('item 2 { 1 2 3 }@1', '2');
+  this.assert_equals('item 3 { 1 2 3 }@1', '3');
+
+  this.assert_equals('item 2 { 1 2 3 }@2', '1');
+  this.assert_equals('item 3 { 1 2 3 }@2', '2');
+  this.assert_equals('item 4 { 1 2 3 }@2', '3');
+
+  this.assert_equals('item -1 { 1 2 3 }@-1', '1');
+  this.assert_equals('item 0 { 1 2 3 }@-1', '2');
 
   //
   // Nested Structures
@@ -524,6 +539,7 @@ QUnit.test("Data Structure Primitives", function(t) {
   this.assert_equals('make "a { 1 }  make "b :a  setitem 1 :a 2  item 1 :b', 2);
   this.assert_error('make "a { 1 }  setitem 1 :a :a', "SETITEM: Can't create circular array");
   this.assert_error('make "a { 1 }  make "b { 1 }  setitem 1 :b :a  setitem 1 :a :b', "SETITEM: Can't create circular array");
+  this.assert_error('setitem 1 "x 123', 'SETITEM: Expected array');
 
   this.assert_equals('make "a mdarray [1 1]  make "b :a  mdsetitem [1 1] :a 2  mditem [1 1] :b', 2);
   this.assert_error('make "a mdarray [1 1]  mdsetitem [1 1] :a :a', "MDSETITEM: Can't create circular array");
@@ -590,6 +606,8 @@ QUnit.test("Data Structure Primitives", function(t) {
   this.assert_equals('3 <> 4', 1);
   this.assert_equals('3 <> 3', 0);
   this.assert_equals('3 <> 2', 1);
+  this.assert_equals('[] = []', 1);
+  this.assert_equals('[] <> [ 1 ]', 1);
 
   this.assert_equals('equalp "a "a', 1);
   this.assert_equals('equalp "a "b', 0);
@@ -1536,7 +1554,7 @@ QUnit.test("Workspace Management", function(t) {
 });
 
 QUnit.test("Control Structures", function(t) {
-  t.expect(114);
+  t.expect(115);
   //
   // 8.1 Control
   //
@@ -1602,7 +1620,7 @@ QUnit.test("Control Structures", function(t) {
 
   this.assert_equals('to foo forever [ if repcount = 5 [ make "c 234 stop ] ] end  foo  :c', 234);
 
-  this.assert_stream('catch "x [ show "a throw "x show "b ] show "b', 'a\nb\n');
+  this.assert_stream('catch "x [ show "a throw "x show "c ] show "b', 'a\nb\n');
   this.assert_equals('catch "x [ show "a (throw "x "z) show "b ]', 'z');
   this.assert_error('catch "x [ throw "q ]', 'No CATCH for tag Q');
   this.assert_error('throw "q', 'No CATCH for tag Q');
@@ -1709,6 +1727,7 @@ QUnit.test("Control Structures", function(t) {
 
   this.assert_equals('to odd :x output :x % 2 end  filter "odd [ 1 2 3 ]', ["1", "3"]);
   this.assert_equals('to odd :x output .promise :x % 2 end  filter "odd [ 1 2 3 ]', ["1", "3"]);
+  this.assert_equals('filter "numberp [ 1 "a 2 "b ]', ["1", "2"]);
 
   this.assert_equals('find "numberp (list "a "b "c 4 "e "f )', 4);
   this.assert_equals('find "numberp (list "a "b "c "d "e "f )', []);
@@ -1747,9 +1766,11 @@ QUnit.test("Error Messages", function(t) {
   this.assert_error("nosuchproc", "Don't know how to NOSUCHPROC", 24);
   this.assert_error("1 + \"1+2", "Expected number", 4);
   this.assert_error("1 + []", "Expected number", 4);
+  this.assert_error("1 + ignore 1", "Expected number", 4);
   this.assert_error("(minus [])", "Expected number", 4);
   this.assert_error("make [] 123", "Expected string", 4);
   this.assert_error("(def [])", "Expected string", 4);
+  this.assert_error("erase ignore 1", "ERASE: Expected list", 4);
 
   this.assert_error('fd50', "Need a space between FD and 50", 39);
 
@@ -1848,6 +1869,21 @@ QUnit.test("Regression Tests", function(t) {
 
   this.assert_equals(
     'make "a 0  do.while [ make "a :a + 1 ] notequalp :a 5  :a', 5);
+
+  this.run('foreach ".verify_bound_ignore [ 1 2 3 4 5 ]');
+  this.assert_equals('map ".verify_bound_identity [ 1 2 ]', ['1', '2']);
+  this.assert_equals('filter ".verify_bound_identity [ 1 2 ]', ['1', '2']);
+  this.assert_equals('find ".verify_bound_identity [ 1 ]', '1');
+  this.run('reduce ".verify_bound_ignore [ 1 2 ]');
+  this.run('ignore crossmap ".verify_bound_ignore [[ 1 2 ] [ 3 4 ]]');
+
+  this.assert_equals('forever [ bye ] 123', undefined);
+  this.assert_equals('for [ i 1 2 ] [ bye ] 123', undefined);
+  this.assert_equals('dotimes [ i 1 ] [ bye ] 123', undefined);
+  this.assert_equals('do.while [ bye ] [ 1 = 1 ] 123', undefined);
+  this.assert_equals('while [ 1 = 1 ] [ bye ] 123', undefined);
+  this.assert_equals('do.until [ bye ] [ 1 = 0 ] 123', undefined);
+  this.assert_equals('until [ 1 = 0 ] [ bye ] 123', undefined);
 });
 
 QUnit.test("API Tests", function(t) {
