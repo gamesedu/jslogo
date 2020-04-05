@@ -1,7 +1,9 @@
-en English
 el Ελληνικά
+en English
 eo Esperanto
 fr Français
 he עברית
+it Italiano
 ja 日本語
+pl Polski
 ru Русский
